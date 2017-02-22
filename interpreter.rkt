@@ -26,6 +26,9 @@
     (expression
       ("if" expression "then" expression "else" expression)
       if-exp)
+    (expression
+      ("let" (arbno  identifier "=" expression) "in" expression)
+      let-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
@@ -64,7 +67,10 @@
     (if-exp (test-exp true-exp false-exp)
      (if (true-value? (eval-expression test-exp env))
          (eval-expression true-exp env)
-         (eval-expression false-exp env)))))
+         (eval-expression false-exp env)))
+    (let-exp (ids rands body)
+     (let ((args (eval-rands rands env)))
+       (eval-expression body (extend-env ids args env))))))
 
 (define (true-value? x)
   (not (zero? x)))
@@ -129,12 +135,19 @@
                 (+ list-index-r 1)
                 #f)))))
 
-; tests
-; (run "3")
-; (run "x")
-; (run "+(3,x)")
-; (run "add1(+(3,x))")
-; (run "if 1 then 2 else 3")
-; (run "if i then x else 3")
-; (run "if -(3,+(1,2)) then 2 else 3")
-
+#|
+tests
+(run "3")
+(run "x")
+(run "+(3,x)")
+(run "add1(+(3,x))")
+(run "if 1 then 2 else 3")
+(run "if i then x else 3")
+(run "if -(3,+(1,2)) then 2 else 3")
+(run "let x=5
+          y=6
+      in +(x,y)")
+(run "let x=1
+      in let x=+(x,2)
+         in add1(x)")
+|#
