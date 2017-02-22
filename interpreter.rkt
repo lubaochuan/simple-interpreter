@@ -23,6 +23,9 @@
     (expression
       (primitive "(" (separated-list expression ",") ")")
       primapp-exp)
+    (expression
+      ("if" expression "then" expression "else" expression)
+      if-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
@@ -57,7 +60,14 @@
     (var-exp (id) (apply-env env id))
     (primapp-exp (prim rands)
      (let ((args (eval-rands rands env)))
-       (apply-primitive prim args)))))
+       (apply-primitive prim args)))
+    (if-exp (test-exp true-exp false-exp)
+     (if (true-value? (eval-expression test-exp env))
+         (eval-expression true-exp env)
+         (eval-expression false-exp env)))))
+
+(define (true-value? x)
+  (not (zero? x)))
 
 (define (eval-rands rands env)
   (map (lambda (x)(eval-rand x env)) rands))
@@ -124,4 +134,7 @@
 ; (run "x")
 ; (run "+(3,x)")
 ; (run "add1(+(3,x))")
+; (run "if 1 then 2 else 3")
+; (run "if i then x else 3")
+; (run "if -(3,+(1,2)) then 2 else 3")
 
