@@ -29,6 +29,12 @@
     (expression
       ("let" (arbno  identifier "=" expression) "in" expression)
       let-exp)
+    (expression
+      ("proc" "(" (separated-list identifier ",") ")" expression)
+      proc-exp)
+    (expression
+      ("(" expression (arbno expression) ")")
+      app-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
@@ -70,7 +76,16 @@
          (eval-expression false-exp env)))
     (let-exp (ids rands body)
      (let ((args (eval-rands rands env)))
-       (eval-expression body (extend-env ids args env))))))
+       (eval-expression body (extend-env ids args env))))
+    (proc-exp (ids body) (closure ids body env))
+    (app-exp (rator rands)
+     (let ((proc (eval-expression rator env))
+           (args (eval-rands rands env)))
+       (if (procval? proc)
+           (apply-procval proc args)
+           (eopl:error 'eval-expression
+                       "Attempt to apply non-procedure ~s" proc))))
+    (else (eopl:error 'eval-expression "Not here:~s" exp))))
 
 (define (true-value? x)
   (not (zero? x)))
@@ -94,6 +109,20 @@
    '(i v x)
    '(1 5 10)
    (empty-env)))
+
+; procedures
+
+(define-datatype procval procval?
+  (closure
+    (ids (list-of symbol?))
+    (body expression?)
+    (env environment?)))
+
+(define apply-procval
+  (lambda (proc args)
+    (cases procval proc
+      (closure (ids body env)
+        (eval-expression body (extend-env ids args env))))))
 
 ; define the environment
 
@@ -150,4 +179,10 @@ tests
 (run "let x=1
       in let x=+(x,2)
          in add1(x)")
+(run "let f=proc (y,z) +(y,-(z,5))
+      in (f 2 28)")
+(run "let x=5
+      in let f=proc (y,z) +(y,-(z,x))
+         in let x=28
+            in (f 2 x)")
 |#
