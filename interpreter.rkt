@@ -35,11 +35,18 @@
     (expression
       ("(" expression (arbno expression) ")")
       app-exp)
+    (expression
+      ("letrec"
+        (arbno identifier "(" (separated-list identifier ",") ")"
+          "=" expression)
+        "in" expression)
+      letrec-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
     (primitive ("add1")  incr-prim)
-    (primitive ("sub1")  decr-prim)))
+    (primitive ("sub1")  decr-prim)
+    (primitive ("zero?") zero-test-prim)))
 
 ; make parser
 
@@ -85,6 +92,10 @@
            (apply-procval proc args)
            (eopl:error 'eval-expression
                        "Attempt to apply non-procedure ~s" proc))))
+    (letrec-exp (proc-names idss bodies letrec-body)
+     (eval-expression
+      letrec-body
+      (extend-env-recursively proc-names idss bodies env)))
     (else (eopl:error 'eval-expression "Not here:~s" exp))))
 
 (define (true-value? x)
@@ -102,7 +113,8 @@
     (subtract-prim () (- (car args) (cadr args)))
     (mult-prim () (* (car args) (cadr args)))
     (incr-prim () (+ (car args) 1))
-    (decr-prim () (- (car args) 1))))
+    (decr-prim () (- (car args) 1))
+    (zero-test-prim () (if (zero? (car args)) 1 0))))
 
 (define (init-env)
   (extend-env
@@ -131,6 +143,11 @@
   (extended-env-record
    (syms (list-of symbol?))
    (vec vector?)
+   (env environment?))
+  (recursively-extended-env-record
+   (proc-names (list-of symbol?))
+   (idss (list-of (list-of symbol?)))
+   (bodies (list-of expression?))
    (env environment?)))
 
 (define (empty-env)
@@ -138,6 +155,10 @@
 
 (define (extend-env syms vals env)
   (extended-env-record syms (list->vector vals) env))
+
+(define (extend-env-recursively proc-names idss bodies old-env)
+  (recursively-extended-env-record
+   proc-names idss bodies old-env))
 
 (define (apply-env env sym)
   (cases environment env
@@ -147,7 +168,15 @@
      (let ((position (rib-find-position sym syms)))
           (if (number? position)
               (vector-ref vals position)
-              (apply-env env sym))))))
+              (apply-env env sym))))
+    (recursively-extended-env-record (proc-names idss bodies old-env)
+     (let ((pos (rib-find-position sym proc-names)))
+       (if (number? pos)
+           (closure
+            (list-ref idss pos)
+            (list-ref bodies pos)
+            env)
+           (apply-env old-env sym))))))
 
 (define (rib-find-position sym los)
   (list-find-position sym los))
@@ -192,5 +221,16 @@ let makemult = proc (maker, x)
                  else 0
 in let times4 = proc (x) (makemult makemult x)
    in (times4 4)
+")
+
+(run "
+letrec fact(x) = if zero?(x) then 1 else *(x, (fact sub1(x)))
+in (fact 6)
+")
+
+(run "
+letrec even(x) = if zero?(x) then 1 else (odd sub1(x))
+       odd(x)  = if zero?(x) then 0 else (even sub1(x))
+in (odd 13)
 ")
 |#
