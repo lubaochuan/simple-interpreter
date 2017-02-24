@@ -41,6 +41,7 @@
           "=" expression)
         "in" expression)
       letrec-exp)
+    (expression ("set" identifier "=" expression) varassign-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
@@ -96,6 +97,12 @@
      (eval-expression
       letrec-body
       (extend-env-recursively proc-names idss bodies env)))
+    (varassign-exp (id rhs-exp)
+     (begin
+       (setref!
+        (apply-env-ref env id)
+        (eval-expression rhs-exp env))
+       1))
     (else (eopl:error 'eval-expression "Not here:~s" exp))))
 
 (define (true-value? x)
@@ -136,6 +143,27 @@
       (closure (ids body env)
         (eval-expression body (extend-env ids args env))))))
 
+; references
+
+(define-datatype reference reference?
+  (a-ref
+   (position integer?)
+   (vec vector?)))
+
+(define (primitive-deref ref)
+  (cases reference ref
+    (a-ref (pos vec) (vector-ref vec pos))))
+
+(define (primitive-setref! ref val)
+  (cases reference ref
+    (a-ref (pos vec) (vector-set! vec pos val))))
+
+(define (deref ref)
+  (primitive-deref ref))
+
+(define (setref! ref val)
+  (primitive-setref! ref val))
+
 ; define the environment
 
 (define-datatype environment environment?
@@ -160,15 +188,15 @@
   (recursively-extended-env-record
    proc-names idss bodies old-env))
 
-(define (apply-env env sym)
+(define (apply-env-ref env sym)
   (cases environment env
     (empty-env-record ()
-     (eopl:error 'apply-env "No binding for ~s" sym))
+     (eopl:error 'apply-env-ref "No binding for ~s" sym))
     (extended-env-record (syms vals env)
      (let ((position (rib-find-position sym syms)))
           (if (number? position)
-              (vector-ref vals position)
-              (apply-env env sym))))
+              (a-ref position vals)
+              (apply-env-ref env sym))))
     (recursively-extended-env-record (proc-names idss bodies old-env)
      (let ((pos (rib-find-position sym proc-names)))
        (if (number? pos)
@@ -176,7 +204,10 @@
             (list-ref idss pos)
             (list-ref bodies pos)
             env)
-           (apply-env old-env sym))))))
+           (apply-env-ref old-env sym))))))
+
+(define (apply-env env sym)
+  (deref (apply-env-ref env sym)))
 
 (define (rib-find-position sym los)
   (list-find-position sym los))
@@ -232,5 +263,41 @@ in (fact 6)
 letrec even(x) = if zero?(x) then 1 else (odd sub1(x))
        odd(x)  = if zero?(x) then 0 else (even sub1(x))
 in (odd 13)
+")
+
+(run "
+let x = 0
+in letrec
+     even() = if zero?(x)
+              then 1
+              else let  d = set x = sub1(x)
+                   in (odd)
+     odd()  = if zero?(x)
+              then 0
+              else let d = set x = sub1(x)
+                   in (even)
+   in let d = set x = 13
+      in (odd)
+")
+
+(run "
+let count = 0
+in let d = set count = 1
+   in count
+")
+
+(run "
+let g = let count = 0
+        in proc ()
+             let d = set count = add1(count)
+             in count
+in +((g),(g))
+")
+
+(run "
+let x = 100
+in let p = proc (x) let d = set x = add1(x)
+                    in x
+   in +((p x),(p x))
 ")
 |#
