@@ -185,4 +185,12 @@ tests
       in let f=proc (y,z) +(y,-(z,x))
          in let x=28
             in (f 2 x)")
+(run "
+let makemult = proc (maker, x)
+                 if x
+                 then +(4,(maker maker -(x,1)))
+                 else 0
+in let times4 = proc (x) (makemult makemult x)
+   in (times4 4)
+")
 |#
