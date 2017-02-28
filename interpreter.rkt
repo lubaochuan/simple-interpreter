@@ -255,6 +255,13 @@ in let times4 = proc (x) (makemult makemult x)
 ")
 
 (run "
+let factorial = proc (fact, x)
+                if x then *(x,(fact fact -(x,1)))
+                else 1
+in (factorial factorial 5)
+")
+
+(run "
 letrec fact(x) = if zero?(x) then 1 else *(x, (fact sub1(x)))
 in (fact 6)
 ")
