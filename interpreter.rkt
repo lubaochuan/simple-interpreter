@@ -42,6 +42,9 @@
         "in" expression)
       letrec-exp)
     (expression ("set" identifier "=" expression) varassign-exp)
+    (expression
+     ("begin" expression (arbno ";" expression) "end")
+     begin-exp)
     (primitive ("+")     add-prim)
     (primitive ("-")     subtract-prim)
     (primitive ("*")     mult-prim)
@@ -103,6 +106,10 @@
         (apply-env-ref env id)
         (eval-expression rhs-exp env))
        1))
+    (begin-exp (exp exps)
+               (if (null? exps)
+                   (eval-expression exp env)
+                   (eval-expression (begin-exp (car exps) (cdr exps)) env)))
     (else (eopl:error 'eval-expression "Not here:~s" exp))))
 
 (define (true-value? x)
@@ -306,5 +313,13 @@ let x = 100
 in let p = proc (x) let d = set x = add1(x)
                     in x
    in +((p x),(p x))
+")
+
+(run "
+begin
+  +(1, 2);
+  -(2, 3);
+  42
+end
 ")
 |#
